@@ -1,0 +1,31 @@
+{
+  "name": "qrpay_js_sdk",
+  "version": "1.0.0",
+  "main": "index.js",
+  "description": "A JavaScript SDK for QR Pay integration.",
+  "author": "Dongwook Shin",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.14.8",
+    "@babel/node": "^7.14.7",
+    "@babel/preset-env": "^7.14.8",
+    "babel-loader": "^8.2.2",
+    "babel-preset-minify": "^0.5.1",
+    "clean-webpack-plugin": "^4.0.0-alpha.0",
+    "eslint": "^7.31.0",
+    "html-webpack-plugin": "^5.3.2",
+    "prettier": "^2.3.2",
+    "rimraf": "^6.1.2",
+    "terser-webpack-plugin": "^5.1.4",
+    "webpack": "^5.46.0",
+    "webpack-cli": "^4.7.2"
+  },
+  "dependencies": {},
+  "scripts": {
+    "clean": "rimraf dist",
+    "local": "webpack --mode development --config webpack.config.local.js",
+    "dev": "webpack --mode development --config webpack.config.dev.js",
+    "prod": "webpack --mode production --config webpack.config.prod.js",
+    "build": "yarn clean && yarn local && yarn dev && yarn prod"
+  }
+}

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js" integrity="sha256-u7e5khyithlIdTpu22PHhENmPcRdFiHRjhAuHcs05RI=" crossorigin="anonymous"></script>
+    <!-- 합쳐지고 최소화된 최신 CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" />
+    <!-- 부가적인 테마 -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css" />
+    <!-- 합쳐지고 최소화된 최신 자바스크립트 -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+      /*
+
+ *   YYYYMMDDHHMMSS
+
+ *   형식으로 날짜를 리턴한다.
+
+ */
+
+      function getDate() {
+        var currentdate = new Date();
+
+        var rst =
+          pad(currentdate.getFullYear(), 2) +
+          pad(currentdate.getMonth() + 1, 2) +
+          pad(currentdate.getDate(), 2) +
+          pad(currentdate.getHours(), 2) +
+          pad(currentdate.getMinutes(), 2);
+
+        return rst;
+      }
+
+      function pad(number, length) {
+        var str = '' + number;
+
+        while (str.length < length) {
+          str = '0' + str;
+        }
+
+        return str;
+      }
+
+      const axiosPost = () => {
+        axios
+          .post(
+            'https://isrnd.bccard.com:34443/app/paybooc/bnpluser.bp?exec=/auth/sms/request',
+            {
+              name: '신동욱',
+              birthDate: '880622',
+              encrypedSocialNo: '1111111',
+              mobileCompanyCode: '3',
+              mobileNo: '01089733575',
+            },
+            {
+              headers: { 'Access-Control-Allow-Origin': 'https://isrnd.bccard.com:34443' },
+            }
+          )
+          .then(function (response) {
+            console.log(response);
+          })
+          .catch(function (error) {
+            console.log(error);
+          });
+      };
+
+      window.addEventListener('load', function () {
+        // axiosPost();
+        var ele = document.getElementById('nextView');
+        const queryString = new URLSearchParams(new FormData(ele)).toString();
+        console.log('queryString: ');
+
+        document.getElementById('bnplClientTxId').value = getDate() + 80 + 1234;
+
+        const parmas = createInitMessage();
+        var srcOpenButton = document.getElementById('open');
+        srcOpenButton.addEventListener('click', function () {
+          parmas.bnplClientId = document.getElementById('bnplClientId').value;
+          parmas.bnplClientTxId = document.getElementById('bnplClientTxId').value;
+          parmas.bnplClientConsumerId = document.getElementById('bnplClientConsumerId').value;
+          parmas.bnplClientOrderNo = document.getElementById('bnplClientOrderNo').value;
+          parmas.merchantName = document.getElementById('merchantName').value;
+          parmas.productName = document.getElementById('productName').value;
+          parmas.numberOfProduct = document.getElementById('numberOfProduct').value;
+          parmas.amount = document.getElementById('amount').value;
+          parmas.returnUrl = document.getElementById('returnUrl').value;
+          parmas.openType = document.getElementById('openType').value;
+          parmas.hashCrc = document.getElementById('hashCrc').value;
+          parmas.personalId = document.getElementById('personalId').value;
+
+          console.log(JSON.stringify(parmas));
+          window.BcBnpl.open(parmas);
+        });
+
+        // window.BcBnpl.open(openParams);
+        var bnplOpenButton = document.getElementById('openPopup');
+        bnplOpenButton.addEventListener('click', function () {
+          console.log('open popup');
+
+          var option = 'width=500, height=500';
+          window.open('https://isrnd.bccard.com:34443/app/paybooc/bnplview.bp?exec=intro', 'bnplPopup', { width: '500', hight: '500' });
+        });
+      });
+
+      const createInitMessage = () => {
+        return {
+          bnplClientId: '',
+          bnplClientTxId: '',
+          bnplClientConsumerId: '',
+          bnplClientOrderNo: '',
+          merchantName: '',
+          productName: '',
+          numberOfProduct: '',
+          amount: '',
+          returnUrl: '',
+          openType: '',
+          hashCrc: '',
+          personalId: '',
+        };
+      };
+    </script>
+  </head>
+  <body>
+    <form id="nextView" name="nextView">
+      <input type="hidden" id="amount" value="100" />
+      <input type="hidden" id="name" value="SHINDONGWOOK" />
+      <input type="hidden" id="age" value="35" />
+      <input type="hidden" id="price" value="12300" />
+    </form>
+    <div class="container">
+      <form id="myform" role="form">
+        <div class="form-group">
+          <label for="srcDpaId">bnplClientId:</label>
+          <input type="text" name="bnplClientId" id="bnplClientId" class="form-control" placeholder="Enter a bnplCliendId" value="80" />
+          <div class="form-group"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="bnplClientTxId">bnplClientTxId:</label>
+          <input type="text" id="bnplClientTxId" class="form-control" placeholder="Enter a bnplClientTxId" value="20220601180000801234" />
+
+          <label for="bnplClientConsumerId">bnplClientConsumerId :</label>
+          <input type="text" id="bnplClientConsumerId" class="form-control" placeholder="" value="0123456" />
+
+          <label for="bnplClientOrderNo">bnplClientOrderNo :</label>
+          <input type="text" id="bnplClientOrderNo" class="form-control" placeholder="" value="11004" />
+
+          <label for="merchantName">merchantName :</label>
+          <input type="text" id="merchantName" class="form-control" placeholder="" value="삼성전자" />
+
+          <label for="productName">productName :</label>
+          <input type="text" id="productName" class="form-control" placeholder="" value="노트북" />
+
+          <label for="numberOfProduct">numberOfProduct :</label>
+          <input type="text" id="numberOfProduct" class="form-control" placeholder="" value="1" />
+
+          <label for="personalId">personalId :</label>
+          <input type="text" id="personalId" class="form-control" placeholder="" value="112311" />
+
+          <label for="amount">amount :</label>
+          <input type="text" id="amount" class="form-control" placeholder="" value="100007" />
+
+          <label for="openType">openType:(PAGE, WINDOW)</label>
+          <input type="text" id="openType" class="form-control" placeholder="" value="WINDOW" />
+
+          <label for="returnUrl">returnUrl:</label>
+          <input type="text" id="returnUrl" class="form-control" placeholder="" value="" />
+          <button class="btn btn-info" type="button" id="open">BNPL Open</button>
+
+          <label for="hashCrc">hashCrc:</label>
+          <input type="text" id="hashCrc" class="form-control" placeholder="hashCrc" value="hashhash" />
+
+          <label for="popup">popup</label>
+          <input type="text" id="returnUrl2" class="form-control" placeholder="" value="" />
+          <button class="btn btn-info" type="button" id="openPopup">BNPL POPUP Open</button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>
