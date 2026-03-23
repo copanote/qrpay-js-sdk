@@ -143,15 +143,6 @@ const QrpayNfilterBridge = (() => {
     });
   };
 
-  window.showNFilterKeypadCallBack = (encData, name, dummyData) => {
-    console.log(`[QRPAY_BRIDGE] showNFilterKeypadCallBack called with encData: ${encData}, name: ${name}, dummyData: ${dummyData}`);
-    if (typeof _callbackHandlers.show === 'function') {
-      _callbackHandlers.show(encData, name, dummyData);
-      // 일회성 콜백이라면 실행 후 초기화 (선택 사항)
-      // _callbackHandlers.show = null;
-    }
-  };
-
   const hideNFilterKeypad = (callback) => {
     _execute({
       androidMethod: 'hideNFilterKeypad',
@@ -161,6 +152,14 @@ const QrpayNfilterBridge = (() => {
     });
   };
 
+  window.showNFilterKeypadCallBack = (encData, name, dummyData) => {
+    console.log(`[QRPAY_BRIDGE] showNFilterKeypadCallBack called with encData: ${encData}, name: ${name}, dummyData: ${dummyData}`);
+    if (typeof _callbackHandlers.show === 'function') {
+      _callbackHandlers.show(encData, name, dummyData);
+      // 일회성 콜백이라면 실행 후 초기화 (선택 사항)
+      // _callbackHandlers.show = null;
+    }
+  };
   window.hideNFilterKeypadCallBack = () => {
     console.log('call : hideNFilterKeypadCallBack');
     if (typeof _callbackHandlers.hide === 'function') {
@@ -174,98 +173,13 @@ const QrpayNfilterBridge = (() => {
   };
   // Public API
   return {
+    isAndroid,
+    isIOS,
+    isOther,
     getDeviceType,
     getKeypadRefId,
+    initNfilterKeypad,
     showNFilterKeypad,
     hideNFilterKeypad,
   };
 })();
-
-// var loginType = '';
-// nFilter CALLBACK (암호화값, 필드네임, 쓰레기값)
-// function showNFilterKeypadCallBack(encData, name, dummyData) {
-//   console.log(`[QRPAY_BRIDGE] showNFilterKeypadCallBack called with encData: ${encData}, name: ${name}, dummyData: ${dummyData}`);
-
-//   if (window.location.href.indexOf('OauthLogin.api') == -1) {
-//     var dumLength = dummyData.length;
-//     if (name.indexOf('_RENEW_') == -1) {
-//       $('#' + name.replace('_ENCRYPT', '')).css('background-image', "url('" + pwdImgArr2[dumLength].src + "')");
-//     } else {
-//       /* 이름에  _RENEW_가 있으면 신버전 UI 동작을 화면으로 넘김 */
-//       if ($.isFunction(nFilterUiUpdate)) {
-//         nFilterUiUpdate(name);
-//       }
-//     }
-//   } else {
-//     // simple login nfilter
-//     if (loginType == '2') {
-//       var dumLength = dummyData.length;
-//       for (var i = 1; i <= 6; i++) {
-//         if (dumLength > 0 && i <= dumLength) {
-//           $('#' + name.replace('_ENCRYPT', '_' + i)).addClass('active');
-//         } else {
-//           $('#' + name.replace('_ENCRYPT', '_' + i)).removeClass('active');
-//         }
-//       }
-//       if ($.isFunction(nFilterUiUpdate)) {
-//         nFilterUiUpdate(name);
-//       }
-//     } else {
-//       //신규 뱔견 특이 케이스  mainLogin%>
-//       if ($.isFunction(nFilterUiUpdate)) {
-//         nFilterUiUpdate(name);
-//       }
-//     }
-//   }
-
-//   if (dummyData.length == 6) {
-//     hideNFilterKeypad();
-//   }
-// }
-
-// hideNFilterKeypad 함수로 키보드를 닫았으면 폰에서 정상적으로 닫았다는 것을 알려 주는 함수
-// function hideNFilterKeypadCallBack() {
-//   // APP 에서 정상적으로 닫힌 경우
-//   // 기본적으로 closeNFilterKeypadCallBack와 같은 동작을 수행하지만 스테이트 세팅값은 다름
-
-//   console.log('call : hideNFilterKeypadCallBack');
-//   try {
-//     if (nFilterCloseState == 'CallHide') {
-//       //닫힐떄 2번 불리는 현상이 있어서 중복 호출 방지용
-//       if (window.location.href.indexOf('OauthLogin.api') > -1 && (typeof login).toUpperCase() == 'FUNCTION') {
-//         setTimeout(function () {
-//           login();
-//         }, 100);
-//       } else if (window.location.href.indexOf('MerInfoUpd.do') > -1) {
-//         fnDone();
-//       } else {
-//         if ($.isFunction(nFilterClose)) {
-//           nFilterClose();
-//         }
-//       }
-//     }
-//   } catch (e) {}
-//   nFilterCloseState = 'DoneHide';
-// }
-
-// nFilter close CALLBACK
-// function closeNFilterKeypadCallBack() {
-//   console.log('call : closeNFilterKeypadCallBack');
-//   try {
-//     if (nFilterCloseState != 'DoneHide') {
-//       //닫힐떄 2번 불리는 현상이 있어서 중복 호출 방지용
-//       if (window.location.href.indexOf('OauthLogin.api') > -1 && (typeof login).toUpperCase() == 'FUNCTION') {
-//         setTimeout(function () {
-//           login();
-//         }, 100);
-//       } else if (window.location.href.indexOf('MerInfoUpd.do') > -1) {
-//         fnDone();
-//       } else {
-//         if ($.isFunction(nFilterClose)) {
-//           nFilterClose();
-//         }
-//       }
-//     }
-//   } catch (e) {}
-//   nFilterCloseState = 'InitHide';
-// }
