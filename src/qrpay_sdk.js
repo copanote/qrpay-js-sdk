@@ -237,14 +237,14 @@ const QRPAY_SDK = () => {
 };
 
 const PAGES_APIS = {
-  PAGES_LOGIN: '/pages/login',
-  PAGES_MAIN: '/pages/home/mpmqr',
-  PAGES_NOTICE: '/pages/settings/notice',
-  PAGES_GUIDE: '/pages/settings/guide',
-  PAGES_TERMS_SERVICE: '/pages/settings/terms-service',
+  PAGES_LOGIN: '/qrpay/pages/login',
+  PAGES_MAIN: '/qrpay/pages/home/mpmqr',
+  PAGES_NOTICE: '/qrpay/pages/settings/notice',
+  PAGES_GUIDE: '/qrpay/pages/settings/guide',
+  PAGES_TERMS_SERVICE: '/qrpay/pages/settings/terms-service',
   PAGES_TERMS_SERVICE_TERMS: '/pages/settings/terms-service/terms',
-  PAGES_TERMS_SERVICE_PERMISSIONS: '/pages/settings/terms-service/permissions',
-  PAGES_TERMS_SERVICE_CANCEL: '/pages/settings/terms-service/cancel',
+  PAGES_TERMS_SERVICE_PERMISSIONS: '/qrpay/pages/settings/terms-service/permissions',
+  PAGES_TERMS_SERVICE_CANCEL: '/qrpay/pages/settings/terms-service/cancel',
 };
 
 const REST_APIS = {
@@ -262,9 +262,9 @@ const REST_APIS = {
 };
 
 const AUTH_APIS = {
-  AUTH_LOGIN: '/auth/login',
-  AUTH_REFRESH: '/auth/refresh',
-  AUTH_LOGOUT: '/auth/logout',
+  AUTH_LOGIN: '/qrpay/auth/login',
+  AUTH_REFRESH: '/qrpay/auth/refresh',
+  AUTH_LOGOUT: '/qrpay/auth/logout',
 };
 
 const QRPAY_CODE = {
