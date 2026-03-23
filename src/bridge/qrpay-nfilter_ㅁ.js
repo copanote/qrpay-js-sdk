@@ -149,13 +149,11 @@ const QrpayNfilterBridge = (() => {
   };
 
   const hideNFilterKeypad = (callback) => {
-
-    _callbackHandlers.hide = callback;
-
     _execute({
       androidMethod: 'hideNFilterKeypad',
       iosScheme: 'hideNFilterKeypad',
-      params: {}
+      params: {},
+      localCallback: callback,
     });
   };
 
