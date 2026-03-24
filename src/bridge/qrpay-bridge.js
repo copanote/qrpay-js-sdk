@@ -165,33 +165,41 @@ const QrpayBridge = (() => {
   };
 
   /**
-   * 기기 정보 요청
-   * - 앱에 디바이스 정보 요청. 앱은 getDevice() 메서드가 호출되면
-   * setDevice() 메서드를 통해 브릿지에 디바이스 정보를 전달해야 함
+   * 기기 정보 반환 (동기)
+   * - sessionStorage에 캐시된 값이 있으면 반환, 없으면 빈 객체 반환
+   * - 페이지 로드 시 _prefetchDevice()가 자동 호출되므로
+   *   유저 액션(버튼 클릭 등) 시점에는 대부분 캐시에 값이 존재
+   * @returns {object} deviceInfo | {}
    */
   const getDevice = () => {
+    const cached = sessionStorage.getItem('deviceInfo');
+    return cached ? JSON.parse(cached) : {};
+  };
+
+  // native 콜백 — 앱이 기기 정보를 전달하면 sessionStorage에 저장
+  window.setDevice = (deviceInfo) => {
+    console.log(`[QRPAY_BRIDGE] Device info received:`, JSON.stringify(deviceInfo));
+    sessionStorage.setItem('deviceInfo', JSON.stringify(deviceInfo));
+  };
+
+  // 페이지 로드 시 native에 기기 정보 요청 (setDevice 콜백으로 sessionStorage에 저장됨)
+  const _prefetchDevice = () => {
+    if (sessionStorage.getItem('deviceInfo')) return; // 이미 캐시 있으면 스킵
+
     if (isOther()) {
       const deviceInfo = _generateRandomDeviceInfo();
-      console.log(`[QRPAY_BRIDGE] Simulated device info for non-app environment:`, deviceInfo);
+      console.log(`[QRPAY_BRIDGE] Simulated device info:`, deviceInfo);
       window.setDevice(deviceInfo);
-      return;
+    } else {
+      _execute({
+        androidMethod: 'getDevice',
+        iosScheme: 'getDevice',
+        params: {},
+      });
     }
-
-    _execute({
-      androidMethod: 'getDevice',
-      iosScheme: 'getDevice',
-      params: {},
-      localCallback: () => {
-        // Handle the device info callback
-      },
-    });
   };
 
-  window.setDevice = (deviceInfo) => {
-    console.log(`[QRPAY_BRIDGE] Device info received:`, deviceInfo);
-    console.log(`[QRPAY_BRIDGE] Device info received:`, JSON.stringify(deviceInfo));
-    window.qrpay.deviceInfo = deviceInfo;
-  };
+  _prefetchDevice();
 
   /**
    * 개인정보처리방침 페이지로 이동
@@ -244,7 +252,7 @@ const QrpayBridge = (() => {
     // });
     console.log(`[QRPAY_BRIDGE] Received TRNS_DATA, navigating to payment page...`, trnsData);
 
-    window.qrpay.cpmqrdata = trnsData.TRNS_DATA; // 전역 변수에 저장 (필요에 따라 네임스페이스 고려)
+    window.cpmqrdata = trnsData.TRNS_DATA; // 전역 변수에 저장 (필요에 따라 네임스페이스 고려)
 
     if (typeof onChangeState === 'function') {
       onChangeState('state-cpmqrpayment');
