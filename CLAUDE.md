@@ -35,7 +35,7 @@ This is a **dependency-free browser SDK** for QR Pay authentication and API comm
 ### Core Modules
 
 **`src/qrpay_sdk.js`** — Main SDK logic
-- `authenticate(username, password, deviceInfo)` — login, stores tokens
+- `authenticate(username, password, keypadRefId, deviceInfo)` — login, stores tokens; `keypadRefId` comes from `QrpayNfilterBridge.getKeypadRefId()`
 - `refresh()` — refreshes access token using stored refresh token
 - `logout()` — clears tokens
 - `verifyAccessToken()` — checks token expiration
@@ -56,6 +56,22 @@ This is a **dependency-free browser SDK** for QR Pay authentication and API comm
 
 **`src/banner.js`** — Build banner generator
 - Runs at build time; captures git commit hash, author, and timestamp for bundle comments
+
+**`src/bridge/qrpay-bridge.js`** — Native app bridge (IIFE, not bundled via webpack)
+- Detects platform via `navigator.userAgent` (`Qrpay_Android` / `Qrpay_iOS` UA strings)
+- Dispatches to `window.android[method](...args)` on Android or `appto://scheme?params` on iOS
+- Auto-prefetches device info on load via `_prefetchDevice()` → stored in `sessionStorage.deviceInfo`
+- Native callbacks registered on `window`: `setDevice`, `setDecalCode`, `setTrnsData`
+- Public API: `qrShare`, `qrLoad`, `qrClear`, `getDevice`, `getDecalCode`, `getTrnsData`, `linkExtraBrowser`, `goPlicyTreatment`
+
+**`src/bridge/qrpay-nfilter.js`** — nFilter secure keypad bridge (IIFE, not bundled via webpack)
+- Fetches public key from `/qrpay/external/nfilter/keypad/init` on load; caches in `sessionStorage`
+- Falls back to a hardcoded public key on fetch failure; uses simulated data in non-app environments
+- Keypad ref ID stored in `sessionStorage.nfilterKeypadRefId`; retrieved via `getKeypadRefId()`
+- Native callbacks: `window.showNFilterKeypadCallBack(encData, name, dummyData)`, `window.hideNFilterKeypadCallBack()`
+- Public API: `initNfilterKeypad`, `showNFilterKeypad(mode, name, len, desc, upYn, callback)`, `hideNFilterKeypad(callback)`
+
+> Both bridge files are standalone IIFEs intended to be included as `<script>` tags directly, not imported through the webpack bundle.
 
 ### Build Targets
 

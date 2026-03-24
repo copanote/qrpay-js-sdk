@@ -4,27 +4,7 @@ import QRPAY_STORAGE from './qrpay_storage';
 const QRPAY_SDK = () => {
   const context = Context();
   const qrpay_storage = QRPAY_STORAGE();
-  const { qrpayBaseUrl, loggable } = context;
-
-  const getBaseUrl = () => {
-    const hostname = window.location.hostname;
-    console.log('Current Hostname:', hostname);
-    console.log('qrpayBaseUrl :', qrpayBaseUrl);
-
-    // 특정 조건(IP 접속)일 때만 URL 교체, 그 외엔 context 값 그대로 사용
-    if (qrpayBaseUrl && qrpayBaseUrl.includes('isrnd3.bccard.com') && hostname === 'localhost') {
-      return 'http://130.1.56.154:20101/qrpay';
-    }
-    console.log('Using Base URL:', qrpayBaseUrl);
-    return qrpayBaseUrl;
-  };
-
-  // 결정된 최종 Base URL (고정값)
-  const finalBaseUrl = getBaseUrl();
-
-  // const createUrl = (path) => `${finalBaseUrl}${path}`;
-
-  const createUrl = (path) => `${path}`;
+  const { loggable } = context;
 
   if (loggable) {
     console.log('qrpaySdk Context[' + '|' + context + ']');
@@ -32,7 +12,7 @@ const QRPAY_SDK = () => {
 
   const authenticate = async (username, password, keypadRefId, { deviceId, deviceType, modelName, osName, appVersion, pushToken } = {}) => {
     console.log(username, password);
-    const data = await fetchPostAsync(createUrl(AUTH_APIS.AUTH_LOGIN), {
+    const data = await fetchPostAsync(AUTH_APIS.AUTH_LOGIN, {
       loginId: username,
       password: password,
       keypadRefId: keypadRefId,
@@ -59,7 +39,7 @@ const QRPAY_SDK = () => {
       return { ok: false, status: 401, error: 'No refresh token available' };
     }
 
-    const data = await fetchPostAsync(createUrl(AUTH_APIS.AUTH_REFRESH), { refreshToken: refreshToken });
+    const data = await fetchPostAsync(AUTH_APIS.AUTH_REFRESH, { refreshToken: refreshToken });
 
     if (loggable) {
       console.log('Refresh data:', data);
@@ -80,12 +60,12 @@ const QRPAY_SDK = () => {
       return { ok: false, error: 'No refresh token available' };
     }
 
-    const data = await fetchPostAsync(createUrl(AUTH_APIS.AUTH_LOGOUT), { refreshToken: refreshToken });
+    const data = await fetchPostAsync(AUTH_APIS.AUTH_LOGOUT, { refreshToken: refreshToken });
     if (!data.ok) {
       console.error('Logout failed:', data);
     }
     qrpay_storage.remove('accessToken');
-    qrpay_storage.remove('accessTokenExpiresIn', accessTokenExpiresIn);
+    qrpay_storage.remove('accessTokenExpiresIn');
     qrpay_storage.remove('refreshToken');
     return true;
   };
