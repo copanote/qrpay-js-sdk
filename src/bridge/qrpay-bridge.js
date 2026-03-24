@@ -1,5 +1,4 @@
 const QrpayBridge = (() => {
-  
   window.qrpay = window.qrpay || {};
 
   // 기기 타입 상수
@@ -10,7 +9,7 @@ const QrpayBridge = (() => {
   };
 
   // 현재 기기 타입을 저장할 변수 - 로드 시 자동 판별
-let currentDeviceType = (() => {
+  let currentDeviceType = (() => {
     const ua = navigator.userAgent;
 
     // A. 우리 앱 전용 식별자 우선 체크
@@ -191,7 +190,7 @@ let currentDeviceType = (() => {
   window.setDevice = (deviceInfo) => {
     console.log(`[QRPAY_BRIDGE] Device info received:`, deviceInfo);
     console.log(`[QRPAY_BRIDGE] Device info received:`, JSON.stringify(deviceInfo));
-    window.qrpay.deviceInfo = deviceInfo; // 전역 변수에 저장 (필요에 따라 네임스페이스 고려)
+    window.qrpay.deviceInfo = deviceInfo;
   };
 
   /**
@@ -245,7 +244,7 @@ let currentDeviceType = (() => {
     // });
     console.log(`[QRPAY_BRIDGE] Received TRNS_DATA, navigating to payment page...`, trnsData);
 
-    window.cpmqrdata = trnsData.TRNS_DATA; // 전역 변수에 저장 (필요에 따라 네임스페이스 고려)
+    window.qrpay.cpmqrdata = trnsData.TRNS_DATA; // 전역 변수에 저장 (필요에 따라 네임스페이스 고려)
 
     if (typeof onChangeState === 'function') {
       onChangeState('state-cpmqrpayment');
