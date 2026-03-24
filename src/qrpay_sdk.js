@@ -30,11 +30,12 @@ const QRPAY_SDK = () => {
     console.log('qrpaySdk Context[' + '|' + context + ']');
   }
 
-  const authenticate = async (username, password, { deviceId, deviceType, modelName, osName, appVersion, pushToken } = {}) => {
+  const authenticate = async (username, password, keypadRefId, { deviceId, deviceType, modelName, osName, appVersion, pushToken } = {}) => {
     console.log(username, password);
     const data = await fetchPostAsync(createUrl(AUTH_APIS.AUTH_LOGIN), {
       loginId: username,
       password: password,
+      keypadRefId: keypadRefId,
       deviceInfo: { deviceId, deviceType, modelName, osName, appVersion, pushToken },
     });
 
