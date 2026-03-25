@@ -24,7 +24,7 @@
 ### 스크립트 로드
 
 ```html
-<!-- qrpay_sdk.js 보다 먼저 로드해야 합니다 -->
+<!-- 두 파일은 독립적이므로 로드 순서는 무관합니다 -->
 <script src="/path/to/qrpay-bridge.js"></script>
 <script src="/path/to/qrpay_sdk.js"></script>
 ```
