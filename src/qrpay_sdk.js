@@ -9,31 +9,6 @@ const AUTH_APIS = {
   AUTH_LOGOUT: '/qrpay/auth/logout',
 };
 
-const PAGES_APIS = {
-  PAGES_LOGIN: '/qrpay/pages/login',
-  PAGES_MAIN: '/qrpay/pages/home/mpmqr',
-  PAGES_NOTICE: '/qrpay/pages/settings/notice',
-  PAGES_GUIDE: '/qrpay/pages/settings/guide',
-  PAGES_TERMS_SERVICE: '/qrpay/pages/settings/terms-service',
-  PAGES_TERMS_SERVICE_TERMS: '/pages/settings/terms-service/terms',
-  PAGES_TERMS_SERVICE_PERMISSIONS: '/qrpay/pages/settings/terms-service/permissions',
-  PAGES_TERMS_SERVICE_CANCEL: '/qrpay/pages/settings/terms-service/cancel',
-};
-
-const REST_APIS = {
-  MERCHANT: {
-    INFO: '/qrpay/api/v1/merchant/info',
-    EMPLOYEES: '/qrpay/api/v1/merchant/employees',
-    ADD_EMPLOYEES: '/qrpay/api/v1/merchant/add-employee',
-    MPMQR: '/qrpay/api/v1/merchant/mpmqr',
-    CHANGE_NAME: '/qrpay/api/v1/merchant/change-name',
-    CHANGE_TIP: '/qrpay/api/v1/merchant/change-tip',
-    CHANGE_VAT: '/qrpay/api/v1/merchant/change-vat',
-  },
-  MEMBER: {},
-  QR_KIT: {},
-};
-
 const QRPAY_CODE = {
   RE_ATHENTICATE: {
     ok: false,
@@ -120,6 +95,7 @@ const QRPAY_SDK = () => {
     qrpay_storage.remove('accessToken');
     qrpay_storage.remove('accessTokenExpiresIn');
     qrpay_storage.remove('refreshToken');
+
     return { ok: true };
   };
 
@@ -154,7 +130,7 @@ const QRPAY_SDK = () => {
       });
 
       if (response.ok) {
-        const json = await response.json();
+        const json = await response.json().catch(() => ({}));
         return { ok: true, ...json };
       }
 
@@ -217,8 +193,6 @@ const QRPAY_SDK = () => {
     fetchGetPromise,
     QRPAY_CODE,
     AUTH_APIS,
-    PAGES_APIS,
-    REST_APIS,
   };
 };
 
