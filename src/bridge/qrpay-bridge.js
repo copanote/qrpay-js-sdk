@@ -190,7 +190,7 @@ const QrpayBridge = (() => {
     _execute({
       androidMethod: 'showNFilterKeypad',
       iosScheme: 'showNFilterKeypad',
-      params: isIOS() ? { mode, name, len, desc, upYn } : { mode, name, len, desc },
+      params: isIOS() ? { mode, name, len, desc, upYn: 'N' } : { mode, name, len, desc },
     });
   };
 
@@ -238,7 +238,9 @@ const QrpayBridge = (() => {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const { publicKey, keypadRefId } = await response.json();
 
@@ -256,13 +258,21 @@ const QrpayBridge = (() => {
       sessionStorage.setItem('QRPAY_nfilterKeypadRefId', keypadRefId);
       sessionStorage.setItem('QRPAY_nfilterPublicKey', publicKey);
       initNfilterKeypad(publicKey);
-      console.error('[QRPAY_BRIDGE] 공개키를 가져오는데 실패했습니다:', error);
+      console.log('[QRPAY_BRIDGE] 공개키를 가져오는데 실패했습니다:', error);
     }
   };
 
   // ─── 자동 초기화 ───────────────────────────────────────────────────────────
-  _prefetchDevice();
-  _fetchAndInitKeypad();
+
+  if (document.readyState === 'complete') {
+    _prefetchDevice();
+    _fetchAndInitKeypad();
+  } else {
+    window.addEventListener('load', () => {
+      _prefetchDevice();
+      _fetchAndInitKeypad();
+    });
+  }
 
   // ─── Public API ────────────────────────────────────────────────────────────
   return {
