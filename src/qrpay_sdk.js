@@ -9,6 +9,8 @@ const AUTH_APIS = {
   AUTH_LOGOUT: '/qrpay/auth/logout',
 };
 
+const TRANSACTION_ID_KEY = 'X-Transaction-ID';
+
 const QRPAY_CODE = {
   RE_ATHENTICATE: {
     ok: false,
@@ -117,6 +119,8 @@ const QRPAY_SDK = () => {
 
   async function _fetch(method, url, data, accessToken = getAccessToken().accessToken) {
     const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+    const txId = sessionStorage.getItem(TRANSACTION_ID_KEY);
+    const txHeader = txId ? { [TRANSACTION_ID_KEY]: txId } : {};
 
     try {
       const response = await fetch(url, {
@@ -125,9 +129,13 @@ const QRPAY_SDK = () => {
         headers: {
           'Content-Type': 'application/json',
           ...authHeader,
+          ...txHeader,
         },
         ...(data !== undefined && { body: JSON.stringify(data) }),
       });
+
+      const newTxId = response.headers.get(TRANSACTION_ID_KEY);
+      if (newTxId) sessionStorage.setItem(TRANSACTION_ID_KEY, newTxId);
 
       if (response.ok) {
         const json = await response.json().catch(() => ({}));
@@ -151,12 +159,18 @@ const QRPAY_SDK = () => {
     if (accessToken === undefined) accessToken = getAccessToken().accessToken;
 
     const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+    const txId = sessionStorage.getItem(TRANSACTION_ID_KEY);
+    const txHeader = txId ? { [TRANSACTION_ID_KEY]: txId } : {};
 
     return fetch(url, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...authHeader },
+      headers: { 'Content-Type': 'application/json', ...authHeader, ...txHeader },
       body: JSON.stringify(data),
+    }).then((response) => {
+      const newTxId = response.headers.get(TRANSACTION_ID_KEY);
+      if (newTxId) sessionStorage.setItem(TRANSACTION_ID_KEY, newTxId);
+      return response;
     }).catch((error) => {
       console.error('Fetch error:', error);
       return Promise.reject({ ...QRPAY_CODE.FETCH_ERROR, error });
@@ -167,11 +181,17 @@ const QRPAY_SDK = () => {
     if (accessToken === undefined) accessToken = getAccessToken().accessToken;
 
     const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+    const txId = sessionStorage.getItem(TRANSACTION_ID_KEY);
+    const txHeader = txId ? { [TRANSACTION_ID_KEY]: txId } : {};
 
     return fetch(url, {
       method: 'GET',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...authHeader },
+      headers: { 'Content-Type': 'application/json', ...authHeader, ...txHeader },
+    }).then((response) => {
+      const newTxId = response.headers.get(TRANSACTION_ID_KEY);
+      if (newTxId) sessionStorage.setItem(TRANSACTION_ID_KEY, newTxId);
+      return response;
     }).catch((error) => {
       console.error('Fetch error:', error);
       return Promise.reject({ ...QRPAY_CODE.FETCH_ERROR, error });

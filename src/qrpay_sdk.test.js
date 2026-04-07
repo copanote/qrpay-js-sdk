@@ -2,21 +2,34 @@ import QRPAY_SDK from './qrpay_sdk';
 
 // ─── fetch mock ─────────────────────────────────────────────────────────────
 
-function mockFetchOk(body) {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: () => Promise.resolve(body),
-  });
+function makeMockResponse(overrides) {
+  return {
+    headers: { get: jest.fn().mockReturnValue(null) },
+    json: () => Promise.resolve({}),
+    ...overrides,
+  };
+}
+
+function mockFetchOk(body, headers = {}) {
+  global.fetch = jest.fn().mockResolvedValue(
+    makeMockResponse({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(body),
+      headers: { get: (key) => headers[key] ?? null },
+    })
+  );
 }
 
 function mockFetchError(status, body = {}) {
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: false,
-    status,
-    statusText: 'Error',
-    json: () => Promise.resolve(body),
-  });
+  global.fetch = jest.fn().mockResolvedValue(
+    makeMockResponse({
+      ok: false,
+      status,
+      statusText: 'Error',
+      json: () => Promise.resolve(body),
+    })
+  );
 }
 
 function mockFetchNetworkError() {
@@ -29,6 +42,7 @@ let sdk;
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   sdk = QRPAY_SDK();
 });
 
@@ -277,8 +291,7 @@ describe('fetchGetAsync()', () => {
 
 describe('fetchPostPromise()', () => {
   test('raw Response 반환', async () => {
-    const mockResponse = { ok: true, status: 200, json: () => Promise.resolve({ data: 1 }) };
-    global.fetch = jest.fn().mockResolvedValue(mockResponse);
+    global.fetch = jest.fn().mockResolvedValue(makeMockResponse({ ok: true, status: 200, json: () => Promise.resolve({ data: 1 }) }));
 
     const response = await sdk.fetchPostPromise('/some/api', { key: 'val' });
 
@@ -298,8 +311,7 @@ describe('fetchPostPromise()', () => {
 
 describe('fetchGetPromise()', () => {
   test('raw Response 반환', async () => {
-    const mockResponse = { ok: true, status: 200, json: () => Promise.resolve({}) };
-    global.fetch = jest.fn().mockResolvedValue(mockResponse);
+    global.fetch = jest.fn().mockResolvedValue(makeMockResponse({ ok: true, status: 200, json: () => Promise.resolve({}) }));
 
     const response = await sdk.fetchGetPromise('/some/api');
     expect(response.ok).toBe(true);
@@ -312,5 +324,62 @@ describe('fetchGetPromise()', () => {
       status: 999,
       code: 'EQ999',
     });
+  });
+});
+
+// ─── X-Transaction-ID ────────────────────────────────────────────────────────
+
+describe('X-Transaction-ID', () => {
+  test('응답 헤더에 X-Transaction-ID 있으면 sessionStorage에 저장', async () => {
+    mockFetchOk({}, { 'X-Transaction-ID': 'txn-001' });
+
+    await sdk.fetchPostAsync('/some/api', {});
+
+    expect(sessionStorage.getItem('X-Transaction-ID')).toBe('txn-001');
+  });
+
+  test('sessionStorage에 X-Transaction-ID 있으면 요청 헤더에 포함', async () => {
+    sessionStorage.setItem('X-Transaction-ID', 'txn-existing');
+    mockFetchOk({});
+
+    await sdk.fetchPostAsync('/some/api', {});
+
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers['X-Transaction-ID']).toBe('txn-existing');
+  });
+
+  test('sessionStorage에 X-Transaction-ID 없으면 요청 헤더에 포함 안 함', async () => {
+    mockFetchOk({});
+
+    await sdk.fetchPostAsync('/some/api', {});
+
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers['X-Transaction-ID']).toBeUndefined();
+  });
+
+  test('fetchPostPromise - 응답 헤더 저장 및 요청 헤더 포함', async () => {
+    sessionStorage.setItem('X-Transaction-ID', 'txn-prev');
+    global.fetch = jest.fn().mockResolvedValue(
+      makeMockResponse({ ok: true, status: 200, headers: { get: (key) => (key === 'X-Transaction-ID' ? 'txn-new' : null) } })
+    );
+
+    await sdk.fetchPostPromise('/some/api', {});
+
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers['X-Transaction-ID']).toBe('txn-prev');
+    expect(sessionStorage.getItem('X-Transaction-ID')).toBe('txn-new');
+  });
+
+  test('fetchGetPromise - 응답 헤더 저장 및 요청 헤더 포함', async () => {
+    sessionStorage.setItem('X-Transaction-ID', 'txn-prev');
+    global.fetch = jest.fn().mockResolvedValue(
+      makeMockResponse({ ok: true, status: 200, headers: { get: (key) => (key === 'X-Transaction-ID' ? 'txn-new' : null) } })
+    );
+
+    await sdk.fetchGetPromise('/some/api');
+
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers['X-Transaction-ID']).toBe('txn-prev');
+    expect(sessionStorage.getItem('X-Transaction-ID')).toBe('txn-new');
   });
 });
