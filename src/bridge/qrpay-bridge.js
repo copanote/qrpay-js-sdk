@@ -88,7 +88,17 @@ const QrpayBridge = (() => {
   // native 콜백 — 앱이 기기 정보를 전달하면 sessionStorage에 저장
   window.setDevice = (deviceInfo) => {
     console.log(`[QRPAY_BRIDGE] Device info received:`, JSON.stringify(deviceInfo));
-    sessionStorage.setItem('QRPAY_deviceInfo', JSON.stringify(deviceInfo));
+
+    const d = {
+      deviceId: deviceInfo.DEVI_ID,
+      deviceType: deviceInfo.DEVI_TYPE,
+      modelName: deviceInfo.MODL_NM,
+      osName: deviceInfo.MOBIL_OS_NM,
+      appVersion: deviceInfo.APP_VER,
+      pushToken: deviceInfo.DEVI_VAL,
+    };
+
+    sessionStorage.setItem('QRPAY_deviceInfo', JSON.stringify(d));
   };
 
   const _prefetchDevice = () => {
@@ -107,6 +117,9 @@ const QrpayBridge = (() => {
 
   /** @param {string} url */
   const qrShare = (url = 'pages/home/mpmqr/share/{qrRefd}') => {
+    if (isOther()) {
+      window.open(url, '_blank');
+    }
     _execute({ androidMethod: 'qrShare', iosScheme: 'qrShare', params: { url } });
   };
 
