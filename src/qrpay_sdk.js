@@ -3,34 +3,18 @@ import QRPAY_STORAGE from './qrpay_storage';
 
 // ─── 상수 ──────────────────────────────────────────────────────────────────
 
-const AUTH_APIS = {
+const AUTH_APIS = Object.freeze({
   AUTH_LOGIN: '/qrpay/auth/login',
   AUTH_REFRESH: '/qrpay/auth/refresh',
   AUTH_LOGOUT: '/qrpay/auth/logout',
-};
+});
 
 const TRANSACTION_ID_KEY = 'X-Transaction-ID';
 
-const QRPAY_CODE = {
-  RE_ATHENTICATE: {
-    ok: false,
-    status: 401,
-    code: 'EQ401',
-    message: 'Authentication Required.',
-  },
-  FETCH_ERROR: {
-    ok: false,
-    status: 999,
-    code: 'EQ999',
-    message: 'Fetch Promise Rejected(Network error, CORS, etc.)',
-  },
-  API_ERROR: {
-    ok: false,
-    status: 500,
-    code: 'EQ500',
-    message: 'application error',
-  },
-};
+const QRPAY_CODE = Object.freeze({
+  RE_AUTHENTICATE: Object.freeze({ ok: false, status: 401, code: 'EQ401', message: 'Authentication Required.' }),
+  FETCH_ERROR: Object.freeze({ ok: false, status: 999, code: 'EQ999', message: 'Fetch Promise Rejected(Network error, CORS, etc.)' }),
+});
 
 // ─── SDK 팩토리 ────────────────────────────────────────────────────────────
 
@@ -38,6 +22,8 @@ const QRPAY_SDK = () => {
   const context = Context();
   const qrpay_storage = QRPAY_STORAGE();
   const { loggable } = context;
+
+  let _refreshPromise = null;
 
   // ─── 인증 ────────────────────────────────────────────────────────────────
 
@@ -63,31 +49,39 @@ const QRPAY_SDK = () => {
     return data;
   };
 
-  const refresh = async () => {
-    const refreshToken = qrpay_storage.find('refreshToken');
-    if (!refreshToken) {
-      return { ok: false, status: 401, error: 'No refresh token available' };
-    }
+  const refresh = () => {
+    if (_refreshPromise) return _refreshPromise;
 
-    const data = await fetchPostAsync(AUTH_APIS.AUTH_REFRESH, { refreshToken: refreshToken });
+    _refreshPromise = (async () => {
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) {
+        return { ok: false, status: 401, error: 'No refresh token available' };
+      }
 
-    if (loggable) {
-      console.log('Refresh data:', data);
-    }
+      const data = await fetchPostAsync(AUTH_APIS.AUTH_REFRESH, { refreshToken: refreshToken });
 
-    if (data.ok) {
-      const { accessToken, accessTokenExpiresIn } = data;
-      qrpay_storage.save('accessToken', accessToken);
-      qrpay_storage.save('accessTokenExpiresIn', accessTokenExpiresIn);
-    }
+      if (loggable) {
+        console.log('Refresh data:', data);
+      }
 
-    return data;
+      if (data.ok) {
+        const { accessToken, accessTokenExpiresIn } = data;
+        qrpay_storage.save('accessToken', accessToken);
+        qrpay_storage.save('accessTokenExpiresIn', accessTokenExpiresIn);
+      }
+
+      return data;
+    })().finally(() => {
+      _refreshPromise = null;
+    });
+
+    return _refreshPromise;
   };
 
   const logout = async () => {
-    const refreshToken = qrpay_storage.find('refreshToken');
+    const refreshToken = getRefreshToken();
     if (!refreshToken) {
-      return { ok: false, error: 'No refresh token available' };
+      return { ok: true }; // 토큰이 없으면 이미 로그아웃된 상태로 간주
     }
 
     const data = await fetchPostAsync(AUTH_APIS.AUTH_LOGOUT, { refreshToken: refreshToken });
@@ -117,29 +111,50 @@ const QRPAY_SDK = () => {
 
   // ─── HTTP 헬퍼 ───────────────────────────────────────────────────────────
 
-  async function _fetch(method, url, data, accessToken = getAccessToken().accessToken) {
+  async function _fetchOnce(method, url, data, accessToken) {
     const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
     const txId = sessionStorage.getItem(TRANSACTION_ID_KEY);
     const txHeader = txId ? { [TRANSACTION_ID_KEY]: txId } : {};
 
-    try {
-      const response = await fetch(url, {
-        method,
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeader,
-          ...txHeader,
-        },
-        ...(data !== undefined && { body: JSON.stringify(data) }),
-      });
+    const response = await fetch(url, {
+      method,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeader,
+        ...txHeader,
+      },
+      ...(data !== undefined && { body: JSON.stringify(data) }),
+    });
 
-      const newTxId = response.headers.get(TRANSACTION_ID_KEY);
-      if (newTxId) sessionStorage.setItem(TRANSACTION_ID_KEY, newTxId);
+    const newTxId = response.headers.get(TRANSACTION_ID_KEY);
+    if (newTxId) sessionStorage.setItem(TRANSACTION_ID_KEY, newTxId);
+
+    return response;
+  }
+
+  async function _fetch(method, url, data, accessToken = getAccessToken().accessToken) {
+    try {
+      const response = await _fetchOnce(method, url, data, accessToken);
 
       if (response.ok) {
         const json = await response.json().catch(() => ({}));
         return { ok: true, ...json };
+      }
+
+      // refresh 엔드포인트 자체가 401이면 재시도 없이 반환
+      if (response.status === 401 && !url.includes(AUTH_APIS.AUTH_REFRESH)) {
+        const refreshResult = await refresh();
+        if (refreshResult.ok) {
+          const retryResponse = await _fetchOnce(method, url, data, getAccessToken().accessToken);
+          if (retryResponse.ok) {
+            const json = await retryResponse.json().catch(() => ({}));
+            return { ok: true, ...json };
+          }
+          const errorBody = await retryResponse.json().catch(() => ({}));
+          return { ok: false, status: retryResponse.status, statusText: retryResponse.statusText, error: errorBody };
+        }
+        return { ...QRPAY_CODE.RE_AUTHENTICATE };
       }
 
       const errorBody = await response.json().catch(() => ({}));
@@ -155,64 +170,17 @@ const QRPAY_SDK = () => {
   const fetchPostAsync = (url, data, accessToken) => _fetch('POST', url, data, accessToken);
   const fetchGetAsync = (url, accessToken) => _fetch('GET', url, undefined, accessToken);
 
-  function fetchPostPromise(url, data, accessToken = undefined) {
-    if (accessToken === undefined) accessToken = getAccessToken().accessToken;
-
-    const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-    const txId = sessionStorage.getItem(TRANSACTION_ID_KEY);
-    const txHeader = txId ? { [TRANSACTION_ID_KEY]: txId } : {};
-
-    return fetch(url, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...authHeader, ...txHeader },
-      body: JSON.stringify(data),
-    }).then((response) => {
-      const newTxId = response.headers.get(TRANSACTION_ID_KEY);
-      if (newTxId) sessionStorage.setItem(TRANSACTION_ID_KEY, newTxId);
-      return response;
-    }).catch((error) => {
-      console.error('Fetch error:', error);
-      return Promise.reject({ ...QRPAY_CODE.FETCH_ERROR, error });
-    });
-  }
-
-  function fetchGetPromise(url, accessToken = undefined) {
-    if (accessToken === undefined) accessToken = getAccessToken().accessToken;
-
-    const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-    const txId = sessionStorage.getItem(TRANSACTION_ID_KEY);
-    const txHeader = txId ? { [TRANSACTION_ID_KEY]: txId } : {};
-
-    return fetch(url, {
-      method: 'GET',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...authHeader, ...txHeader },
-    }).then((response) => {
-      const newTxId = response.headers.get(TRANSACTION_ID_KEY);
-      if (newTxId) sessionStorage.setItem(TRANSACTION_ID_KEY, newTxId);
-      return response;
-    }).catch((error) => {
-      console.error('Fetch error:', error);
-      return Promise.reject({ ...QRPAY_CODE.FETCH_ERROR, error });
-    });
-  }
-
   // ─── Public API ──────────────────────────────────────────────────────────
 
   return {
     getAccessToken,
-    getRefreshToken,
     verifyAccessToken,
     authenticate,
     refresh,
     logout,
     fetchPostAsync,
     fetchGetAsync,
-    fetchPostPromise,
-    fetchGetPromise,
     QRPAY_CODE,
-    AUTH_APIS,
   };
 };
 

@@ -63,7 +63,7 @@ describe('authenticate()', () => {
     expect(result.ok).toBe(true);
     expect(result.accessToken).toBe('access_abc');
     expect(sdk.getAccessToken().accessToken).toBe('access_abc');
-    expect(sdk.getRefreshToken()).toBe('refresh_xyz');
+    expect(localStorage.getItem('QRPAY_refreshToken')).toBe('"refresh_xyz"');
   });
 
   test('로그인 실패 시 토큰 저장 안 함', async () => {
@@ -125,17 +125,28 @@ describe('refresh()', () => {
     const result = await sdk.refresh();
 
     expect(result.ok).toBe(false);
-    expect(sdk.getAccessToken().accessToken).toBe('old_access'); // 기존 토큰 유지
+    expect(sdk.getAccessToken().accessToken).toBe('old_access');
+  });
+
+  test('동시 호출 시 네트워크 요청은 1번만 발생', async () => {
+    localStorage.setItem('QRPAY_refreshToken', '"refresh_xyz"');
+    mockFetchOk({ accessToken: 'new_token', accessTokenExpiresIn: 9999999999999 });
+
+    const [r1, r2] = await Promise.all([sdk.refresh(), sdk.refresh()]);
+
+    expect(r1.ok).toBe(true);
+    expect(r2.ok).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
 
 // ─── logout ──────────────────────────────────────────────────────────────────
 
 describe('logout()', () => {
-  test('refreshToken 없으면 ok:false 반환', async () => {
+  test('refreshToken 없으면 ok:true 반환 (이미 로그아웃 상태)', async () => {
     const result = await sdk.logout();
 
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
   });
 
   test('성공 시 모든 토큰 삭제 및 ok:true 반환', async () => {
@@ -148,7 +159,7 @@ describe('logout()', () => {
 
     expect(result.ok).toBe(true);
     expect(sdk.getAccessToken().accessToken).toBeNull();
-    expect(sdk.getRefreshToken()).toBeNull();
+    expect(localStorage.getItem('QRPAY_refreshToken')).toBeNull();
   });
 
   test('API 실패해도 토큰은 삭제됨', async () => {
@@ -157,7 +168,7 @@ describe('logout()', () => {
 
     await sdk.logout();
 
-    expect(sdk.getRefreshToken()).toBeNull();
+    expect(localStorage.getItem('QRPAY_refreshToken')).toBeNull();
   });
 });
 
@@ -170,37 +181,34 @@ describe('verifyAccessToken()', () => {
 
   test('만료된 토큰이면 false', () => {
     localStorage.setItem('QRPAY_accessToken', '"access_abc"');
-    localStorage.setItem('QRPAY_accessTokenExpiresIn', '1000'); // 과거 시각
+    localStorage.setItem('QRPAY_accessTokenExpiresIn', '1000');
 
     expect(sdk.verifyAccessToken()).toBe(false);
   });
 
   test('유효한 토큰이면 true', () => {
     localStorage.setItem('QRPAY_accessToken', '"access_abc"');
-    localStorage.setItem('QRPAY_accessTokenExpiresIn', String(Date.now() + 3600000)); // 1시간 후
+    localStorage.setItem('QRPAY_accessTokenExpiresIn', String(Date.now() + 3600000));
 
     expect(sdk.verifyAccessToken()).toBe(true);
   });
 });
 
-// ─── getAccessToken / getRefreshToken ────────────────────────────────────────
+// ─── getAccessToken ──────────────────────────────────────────────────────────
 
-describe('getAccessToken() / getRefreshToken()', () => {
+describe('getAccessToken()', () => {
   test('저장된 토큰 반환', () => {
     localStorage.setItem('QRPAY_accessToken', '"access_abc"');
     localStorage.setItem('QRPAY_accessTokenExpiresIn', '9999999999999');
-    localStorage.setItem('QRPAY_refreshToken', '"refresh_xyz"');
 
     const { accessToken, accessTokenExpiresIn } = sdk.getAccessToken();
     expect(accessToken).toBe('access_abc');
     expect(accessTokenExpiresIn).toBe(9999999999999);
-    expect(sdk.getRefreshToken()).toBe('refresh_xyz');
   });
 
   test('토큰 없으면 null 반환', () => {
     const { accessToken } = sdk.getAccessToken();
     expect(accessToken).toBeNull();
-    expect(sdk.getRefreshToken()).toBeNull();
   });
 });
 
@@ -287,43 +295,59 @@ describe('fetchGetAsync()', () => {
   });
 });
 
-// ─── fetchPostPromise / fetchGetPromise ───────────────────────────────────────
+// ─── 401 자동 refresh ─────────────────────────────────────────────────────────
 
-describe('fetchPostPromise()', () => {
-  test('raw Response 반환', async () => {
-    global.fetch = jest.fn().mockResolvedValue(makeMockResponse({ ok: true, status: 200, json: () => Promise.resolve({ data: 1 }) }));
+describe('401 자동 refresh', () => {
+  test('401 → refresh 성공 → retry 성공 시 ok:true 반환', async () => {
+    localStorage.setItem('QRPAY_refreshToken', '"refresh_xyz"');
 
-    const response = await sdk.fetchPostPromise('/some/api', { key: 'val' });
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeMockResponse({ ok: false, status: 401, statusText: 'Unauthorized', json: () => Promise.resolve({}) }))
+      .mockResolvedValueOnce(makeMockResponse({ ok: true, status: 200, json: () => Promise.resolve({ accessToken: 'new_token', accessTokenExpiresIn: 9999999999999 }) }))
+      .mockResolvedValueOnce(makeMockResponse({ ok: true, status: 200, json: () => Promise.resolve({ data: 'retried' }) }));
 
-    expect(response.ok).toBe(true);
-    expect(response.status).toBe(200);
+    const result = await sdk.fetchPostAsync('/some/api', {});
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toBe('retried');
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 
-  test('네트워크 오류 시 FETCH_ERROR로 reject', async () => {
-    mockFetchNetworkError();
+  test('401 → refresh 실패 → RE_AUTHENTICATE 반환', async () => {
+    localStorage.setItem('QRPAY_refreshToken', '"refresh_xyz"');
 
-    await expect(sdk.fetchPostPromise('/some/api', {})).rejects.toMatchObject({
-      status: 999,
-      code: 'EQ999',
-    });
-  });
-});
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeMockResponse({ ok: false, status: 401, statusText: 'Unauthorized', json: () => Promise.resolve({}) }))
+      .mockResolvedValueOnce(makeMockResponse({ ok: false, status: 401, statusText: 'Unauthorized', json: () => Promise.resolve({}) }));
 
-describe('fetchGetPromise()', () => {
-  test('raw Response 반환', async () => {
-    global.fetch = jest.fn().mockResolvedValue(makeMockResponse({ ok: true, status: 200, json: () => Promise.resolve({}) }));
+    const result = await sdk.fetchPostAsync('/some/api', {});
 
-    const response = await sdk.fetchGetPromise('/some/api');
-    expect(response.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe('EQ401');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
-  test('네트워크 오류 시 FETCH_ERROR로 reject', async () => {
-    mockFetchNetworkError();
+  test('401 → refreshToken 없으면 RE_AUTHENTICATE 반환 (네트워크 추가 호출 없음)', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeMockResponse({ ok: false, status: 401, statusText: 'Unauthorized', json: () => Promise.resolve({}) }));
 
-    await expect(sdk.fetchGetPromise('/some/api')).rejects.toMatchObject({
-      status: 999,
-      code: 'EQ999',
-    });
+    const result = await sdk.fetchPostAsync('/some/api', {});
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe('EQ401');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('AUTH_REFRESH 자체가 401이면 재시도 없음', async () => {
+    localStorage.setItem('QRPAY_refreshToken', '"refresh_xyz"');
+
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeMockResponse({ ok: false, status: 401, statusText: 'Unauthorized', json: () => Promise.resolve({}) }));
+
+    const result = await sdk.fetchPostAsync('/qrpay/auth/refresh', {});
+
+    expect(result.ok).toBe(false);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -355,31 +379,5 @@ describe('X-Transaction-ID', () => {
 
     const [, options] = global.fetch.mock.calls[0];
     expect(options.headers['X-Transaction-ID']).toBeUndefined();
-  });
-
-  test('fetchPostPromise - 응답 헤더 저장 및 요청 헤더 포함', async () => {
-    sessionStorage.setItem('X-Transaction-ID', 'txn-prev');
-    global.fetch = jest.fn().mockResolvedValue(
-      makeMockResponse({ ok: true, status: 200, headers: { get: (key) => (key === 'X-Transaction-ID' ? 'txn-new' : null) } })
-    );
-
-    await sdk.fetchPostPromise('/some/api', {});
-
-    const [, options] = global.fetch.mock.calls[0];
-    expect(options.headers['X-Transaction-ID']).toBe('txn-prev');
-    expect(sessionStorage.getItem('X-Transaction-ID')).toBe('txn-new');
-  });
-
-  test('fetchGetPromise - 응답 헤더 저장 및 요청 헤더 포함', async () => {
-    sessionStorage.setItem('X-Transaction-ID', 'txn-prev');
-    global.fetch = jest.fn().mockResolvedValue(
-      makeMockResponse({ ok: true, status: 200, headers: { get: (key) => (key === 'X-Transaction-ID' ? 'txn-new' : null) } })
-    );
-
-    await sdk.fetchGetPromise('/some/api');
-
-    const [, options] = global.fetch.mock.calls[0];
-    expect(options.headers['X-Transaction-ID']).toBe('txn-prev');
-    expect(sessionStorage.getItem('X-Transaction-ID')).toBe('txn-new');
   });
 });
