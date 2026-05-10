@@ -44,32 +44,47 @@ const QrpayBridge = (() => {
   // ─── Device ────────────────────────────────────────────────────────────────
 
   const _generateRandomDeviceInfo = () => {
-    const uuid = () =>
-      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-        .replace(/[xy]/g, (c) => {
-          const r = (Math.random() * 16) | 0;
-          const v = c === 'x' ? r : (r & 0x3) | 0x8;
-          return v.toString(16);
-        })
-        .split('-')
-        .slice(0, 5)
-        .join('-');
+    // 1. 환경에 맞는 crypto 객체 선택 (브라우저/Node.js 호환)
+    const cryptoObj = typeof window !== 'undefined' ? window.crypto || window.msCrypto : require('crypto').webcrypto;
 
-    const models = ['samsung SM-G981N', 'samsung SM-S901N', 'apple iPhone14,2', 'google Pixel 7'];
-    const osVersions = ['11', '12', '13', '14', '15'];
+    // 2. 안전한 랜덤 인덱스 추출 함수
+    const getSecureIndex = (max) => {
+      const array = new Uint32Array(1);
+      cryptoObj.getRandomValues(array);
+      return array[0] % max;
+    };
+
+    // 3. 보안 강화된 토큰 생성 함수 (CSPRNG 기반)
     const generateToken = (length) => {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-:';
+      const randomValues = new Uint32Array(length);
+      cryptoObj.getRandomValues(randomValues);
+
       let result = '';
-      for (let i = 0; i < length; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+      for (let i = 0; i < length; i++) {
+        result += chars.charAt(randomValues[i] % chars.length);
+      }
       return result;
     };
 
+    const models = ['[test]samsung SM-G981N', '[test]samsung SM-S901N', '[test]apple iPhone14,2', '[test]google Pixel 7'];
+    const osVersions = ['11', '12', '13', '14', '15'];
+
+    // 4. 최신 표준인 crypto.randomUUID() 사용 (없을 경우를 대비한 폴백 포함)
+    const deviceId = cryptoObj.randomUUID
+      ? cryptoObj.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = getSecureIndex(16);
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+
     return {
       deviceType: 'O',
-      modelName: models[Math.floor(Math.random() * models.length)],
-      osName: osVersions[Math.floor(Math.random() * osVersions.length)],
-      deviceId: uuid().substring(0, 36),
-      appVersion: `1.2.${Math.floor(Math.random() * 10)}`,
+      modelName: models[getSecureIndex(models.length)],
+      osName: osVersions[getSecureIndex(osVersions.length)],
+      deviceId: deviceId, // 표준 UUID v4 보장
+      appVersion: `1.2.${getSecureIndex(10)}`,
       pushToken: `${generateToken(22)}:${generateToken(140)}`,
     };
   };
