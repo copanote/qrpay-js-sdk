@@ -225,7 +225,7 @@ const QrpayBridge = (() => {
   /** @param {function} callback () => void */
   const hideNFilterKeypad = (callback) => {
     _callbackHandlers.hide = callback;
-    _execute({ androidMethod: 'hideNFilterKeypad', iosScheme: 'hideNFilterKeypad', params: {} });
+    _execute({ androidMethod: 'hideNFilterKeypad', iosScheme: 'hideNFilterKeypad2', params: {} });
   };
 
   window.showNFilterKeypadCallBack = (encData, name, dummyData) => {
